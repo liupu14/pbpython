@@ -24,10 +24,11 @@ import itchat
 import numpy as np 
 import pandas as pd
 import matplotlib.pyplot as plt 
-import matplotlib as mpl
+import matplotlib 
 from matplotlib.patches import Polygon
 from mpl_toolkits.basemap import Basemap
 from matplotlib.collections import PatchCollection
+import re
 
 # ===============获取微信好友信息============== #
 
@@ -35,26 +36,26 @@ itchat.login()  # 登录网页版微信，这条命令会弹出一个二维码�
 
 friends = itchat.get_friends(update = True)  # 获取微信好友信息
 df_friends = pd.DataFrame(friends)  # 将微信好友消息转为数据框形式
-pro_friends = df_friends.loc[:,['Nickname','Province']]  # 获取好友信息中的昵称与省份信息
-pro_friends = pro_friends[~pro_friends['Province'].isna()] # 获取好友中存在明确位置信息的好友信息
+pro_friends = df_friends.loc[:,['NickName','Province']]  # 获取好友信息中的昵称与省份信息
 
 summaryInfo = pro_friends.groupby(['Province'])['NickName'].agg({'人员数量': np.size}).reset_index()  # 按照省份对各省的好友人数进行汇总，并将其命名为人员数量
 summaryInfo.sort_values(by = ['人员数量'],ascending = False,inplace=True)  # 按照人员数量对数据表进行排序
 
-def match_str(item):
-    result = []
-    for ii in item:
-        try: 
-            m = re.search("^[\u4e00-\u9fa5]{1,}",ii).group()
-            result.append(m)
-        except:
-            continue
-    return(result)
+def province_split(item):
+	result = []
+	for ii in item:
+		try:
+			pattern = re.search("^[\u4e00-\u9fa5]{1,}",ii).group()
+			result.append(pattern)
+		except:
+			continue
+	return(result)
 
-dome_friends = match_str(summaryInfo["Province"].tolist())
+dome_friends = province_split(summaryInfo.Province.tolist())
 dome_friends = summaryInfo.loc[summaryInfo.Province.isin(dome_friends),:]
-Foreign_friends  = summaryInfo.loc[summaryInfo.Province.isin([i for ii in summaryInfo.Province.tolist() if ii not in Domestic.Province.tolist()]),:]
-dome_friends['standardism'] = (dome_friends.人员数量 - dome_friends.人员数量.min()) / (dome_friends.人员数量.max() - dome_friends.人数.min())
+foreign_friends = summaryInfo.loc[summaryInfo.Province.isin([ii for ii in summaryInfo.Province.tolist() if ii not in dome_friends.Province.tolist()]),:]
+
+dome_friends['standardism'] =(dome_friends.人员数量 - dome_friends.人员数量.min()) /(dome_friends.人员数量.max() - dome_friends.人员数量.min())
 
 
 def ProvinceName_correct(name_list):
@@ -73,12 +74,18 @@ def ProvinceName_correct(name_list):
         elif item in ["北京","天津","重庆","上海"]:
             item += "市"
         else:
-            item += "省"name.append(i)
+            item += "省"
+        name.append(item)
     return(name)
+
 dome_friends["Province"] = ProvinceName_correct(dome_friends["Province"])
 
 province_data = pd.read_excel("Province.xlsx") 
 dome_friends = dome_friends.merge(province_data.loc[:,["province","jingdu","weidu"]],how = "left",left_on = "Province",right_on = "province")
+
+
+fig = plt.figure(figsize=(16,12))
+ax  = fig.add_subplot(111)
 
 basemap = Basemap(llcrnrlon= 75,llcrnrlat=10,urcrnrlon=150,urcrnrlat=55,projection='poly',lon_0 = 116.65,lat_0 = 40.02,ax = ax)
 basemap.readshapefile(shapefile = "bou2_4p",name = "china")
@@ -89,21 +96,16 @@ heatmapData["NAME"] = heatmapData["NAME"].map(lambda x: x.decode("gbk") if len(x
 heatmapData = heatmapData.merge(dome_friends,how = "left",left_on='NAME', right_on="Province")
 
 
-font = {'family' : 'SimHei'};
-matplotlib.rc('font', **font);
-fig = plt.figure(figsize=(16,12))
-ax  = fig.add_subplot(111)
-
 ###构建省份填充函数（按照各省好友人数比例）：
 def plotProvince(row):
-    mainColor = (42/256, 87/256, 141/256,row['standardism']);
+    mainColor = (250/256, 1/256, 1/256,row['standardism']);
     patches = []
     for info,shape in zip(heatmapData["NAME"].tolist(),basemap.china): 
         if info == row['Province']:
             patches.append(Polygon(xy = np.array(shape), closed=True))
     ax.add_collection(PatchCollection(patches,facecolor=mainColor,edgecolor=mainColor,linewidths=1.,zorder=2))
 
-Domestic.apply(lambda row: plotProvince(row), axis=1)
+dome_friends.apply(lambda row: plotProvince(row), axis=1)
 
 
 plt.axis("off")  #关闭坐标轴
