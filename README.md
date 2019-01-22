@@ -1,2 +1,2 @@
 # pbpython
-Introduce the basic use of python for practical business  
+Introduce the basic use of python and R for practical business  
