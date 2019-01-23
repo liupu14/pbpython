@@ -34,6 +34,10 @@ ufo <- ufo[good_rows, ]
 ufo$OccurDate <- as.Date(ufo$OccurDate,format = "%Y%m%d")
 ufo$ReportDate <- as.Date(ufo$ReportDate,format = "%Y%m%d")
 
+## 也可以使用lubridate包中ymd()函数进行日期转换
+## ufo$OccurDate <- ymd(ufo$OccurDate)
+## ufo$ReportDate <- ymd(ufo$ReportDate)
+
 # 获取城市和州分别存在City列和State列
 split_city_state <- function(location)
 {
@@ -84,7 +88,7 @@ ufo <- rename(ufo,"Duration"=Dur)
 # 绘制ufo出现日期的直方图并保存
 Hist <- ggplot(ufo,aes(x=OccurDate)) +
   geom_histogram() +
-  scale_x_date(breaks = "50 years")
+  scale_x_date(date_breaks  = "50 years",date_labels = "%Y")
 
 ggsave(plot = Hist,
        filename = "quick_hist.jpeg",
